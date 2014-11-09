@@ -1,5 +1,7 @@
 require "open3"
 
+require "progressbar"
+
 class RedmineTextFormatConverter
   def self.run
     new.run
@@ -58,12 +60,17 @@ class RedmineTextFormatConverter
   def convert_text_attribute(klass, text_attribute_name)
     text_getter_name = text_attribute_name
     text_setter_name = "#{text_getter_name}=".to_sym
+    n = klass.count
+    puts("#{klass.name}##{text_attribute_name} #{n} rows:")
+    progress = ProgressBar.new("converting", n)
     klass.all.each do |o|
       original_text = o.send(text_getter_name)
       converted_text = pandoc(original_text)
       o.send(text_setter_name, converted_text)
       o.save!
+      progress.inc
     end
+    progress.finish
   end
 
   def convert_setting_welcome_text

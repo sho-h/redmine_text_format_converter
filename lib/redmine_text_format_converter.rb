@@ -63,7 +63,8 @@ class RedmineTextFormatConverter
     n = klass.count
     puts("#{klass.name}##{text_attribute_name} #{n} rows:")
     progress = ProgressBar.new("converting", n)
-    klass.all.each do |o|
+    klass.order(:id).each_with_index do |o, i|
+      ActiveRecord::Base.logger.debug { "processing: i=<#{i}> id=<#{o.id}>" }
       original_text = o.send(text_getter_name)
       converted_text = pandoc(original_text)
       o.send(text_setter_name, converted_text)

@@ -37,6 +37,10 @@ class RedmineTextFormatConverter
     " -t markdown+fenced_code_blocks+lists_without_preceding_blankline" +
     " --atx-header"
 
+  def l
+    return ActiveRecord::Base.logger
+  end
+
   def capture2(*command, **options)
     stdout, status = *Open3.capture2(*command, options)
     if !status.success?
@@ -64,7 +68,7 @@ class RedmineTextFormatConverter
     puts("#{klass.name}##{text_attribute_name} #{n} rows:")
     progress = ProgressBar.new("converting", n)
     klass.order(:id).each_with_index do |o, i|
-      ActiveRecord::Base.logger.debug { "processing: i=<#{i}> id=<#{o.id}>" }
+      l.debug { "processing: i=<#{i}> id=<#{o.id}>" }
       original_text = o.send(text_getter_name)
       converted_text = pandoc(original_text)
       o.send(text_setter_name, converted_text)

@@ -22,7 +22,9 @@ class RedmineTextFormatConverter
         [WikiContent, :text],
         [WikiContent::Version, :text],
       ].each do |klass, text_attribute_name|
-        convert_text_attribute(klass, text_attribute_name)
+        set_record_timestamps(klass, false) do
+          convert_text_attribute(klass, text_attribute_name)
+        end
       end
     end
   end
@@ -39,6 +41,16 @@ class RedmineTextFormatConverter
 
   def l
     return ActiveRecord::Base.logger
+  end
+
+  def set_record_timestamps(klass, value)
+    saved = klass.record_timestamps
+    begin
+      klass.record_timestamps = value
+      yield
+    ensure
+      klass.record_timestamps = saved
+    end
   end
 
   def capture2(*command, **options)
@@ -79,11 +91,13 @@ class RedmineTextFormatConverter
   end
 
   def convert_setting_welcome_text
-    Setting.find_all_by_name("welcome_text").each do |setting|
-      original_text = setting.value
-      converted_text = pandoc(original_text)
-      setting.value = converted_text
-      setting.save!
+    set_record_timestamps(Setting, false) do
+      Setting.find_all_by_name("welcome_text").each do |setting|
+        original_text = setting.value
+        converted_text = pandoc(original_text)
+        setting.value = converted_text
+        setting.save!
+      end
     end
   end
 end

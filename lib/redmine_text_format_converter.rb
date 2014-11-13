@@ -76,10 +76,11 @@ class RedmineTextFormatConverter
   def convert_text_attribute(klass, text_attribute_name)
     text_getter_name = text_attribute_name
     text_setter_name = "#{text_getter_name}=".to_sym
-    n = klass.count
+    relation = klass.where("#{text_attribute_name} != ''")
+    n = relation.count
     puts("#{klass.name}##{text_attribute_name} #{n} rows:")
     progress = ProgressBar.new("converting", n)
-    klass.order(:id).each_with_index do |o, i|
+    relation.order(:id).each_with_index do |o, i|
       l.debug { "processing: i=<#{i}> id=<#{o.id}>" }
       original_text = o.send(text_getter_name)
       converted_text = pandoc(original_text)

@@ -7,21 +7,15 @@ class RedmineTextFormatConverter
     new.run
   end
 
+  def self.check_texts
+    new.check_texts
+  end
+
   def run
     check_pandoc
     ActiveRecord::Base.transaction do
       convert_setting_welcome_text
-      [
-        [Comment, :comments],
-        [Document, :description],
-        [Issue, :description],
-        [Journal, :notes],
-        [Message, :content],
-        [News, :description],
-        [Project, :description],
-        [WikiContent, :text],
-        [WikiContent::Version, :text],
-      ].each do |klass, text_attribute_name|
+      TEXT_ATTRIBUTES.each do |klass, text_attribute_name|
         set_record_timestamps(klass, false) do
           convert_text_attribute(klass, text_attribute_name)
         end
@@ -29,7 +23,35 @@ class RedmineTextFormatConverter
     end
   end
 
+  def check_texts
+    TEXT_ATTRIBUTES.each do |klass, text_attribute_name|
+      text_getter_name = text_attribute_name
+      relation = klass.where("#{text_attribute_name} != ''")
+      n = relation.count
+      puts("#{klass.name}##{text_attribute_name} #{n} rows:")
+      progress = ProgressBar.new("converting", n)
+      relation.order(:id).each_with_index do |o, i|
+        l.debug { "checking: i=<#{i}> id=<#{o.id}>" }
+        original_text = o.send(text_getter_name)
+        check_text(o, text_attribute_name, original_text)
+        progress.inc
+      end
+      progress.finish
+    end
+  end
+
   private
+
+  TEXT_ATTRIBUTES = [
+    [Comment, :comments],
+    [Document, :description],
+    [Issue, :description],
+    [Journal, :notes],
+    [Message, :content],
+    [News, :description],
+    [Project, :description],
+    [WikiContent, :text],
+  ]
 
   REQUIRED_PANDOC_VERSION = Gem::Version.create("1.13.0")
 
@@ -99,6 +121,18 @@ class RedmineTextFormatConverter
         setting.value = converted_text
         setting.save!
       end
+    end
+  end
+
+  def check_text(record, text_attribute_name, text)
+    n_pre_begin_tags = text.each_line.lazy.grep(/<pre>/).count
+    n_pre_end_tags = text.each_line.lazy.grep(%r|</pre>|).count
+    if n_pre_begin_tags != n_pre_end_tags
+      l.warn {
+        "#{record.class}(#{record.id})##{text_attribute_name}:" +
+        " mismatch number of <pre>(#{n_pre_begin_tags})" +
+        " and </pre>(#{n_pre_end_tags})"
+      }
     end
   end
 end

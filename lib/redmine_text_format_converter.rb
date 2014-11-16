@@ -11,6 +11,10 @@ class RedmineTextFormatConverter
     new.check_texts
   end
 
+  def self.fix_invalid_texts
+    new.fix_invalid_texts
+  end
+
   def run
     check_pandoc
     ActiveRecord::Base.transaction do
@@ -52,6 +56,68 @@ EOS
     end
   end
 
+  def fix_invalid_texts
+    path = Pathname("invalid_attributes.yml")
+    if !path.exist?
+      puts(<<EOS)
+No #{path}.
+
+First, run redmine:check_texts task. And, retry.
+
+    $ bundle exec rake redmine:check_texts redmine:fix_invalid_texts
+EOS
+      return
+    end
+
+    editor = search_editor
+    if !editor
+      puts("No editor.")
+      return
+    end
+
+    invalid_attributes = YAML.load_file(path)
+    invalid_attributes.each_with_index do |d, i|
+      klass = d[:klass].constantize
+      record = klass.find(d[:id])
+      text = record.send(d[:text_attribute_name])
+      Tempfile.open("text_format_converter_") do |f|
+        s = <<EOS.gsub(/\r?\n/, "\r\n")
+# Number: #{i + 1}/#{invalid_attributes.length}
+# Location: #{create_location_string(d)}
+# Reason: #{d[:reason]}
+#
+# If you want to abort fixing, set empty text.
+#
+#{EDITOR_COMMENT_END_MARK}
+EOS
+        f.write(s)
+        f.write(text)
+        f.close
+        if !system("#{editor} #{f.path}")
+          puts("Aborted. Some editor problem is occurred.")
+          return
+        end
+        f.open
+        text = f.read
+        f.close(true)
+      end
+      if text.empty?
+        puts("Aborted by user.")
+        return
+      end
+      text.sub!(/.*?#{EDITOR_COMMENT_END_MARK}\r\n/m, "")
+      text.sub!(/\s+\z/, "")
+      record.send(d[:text_attribute_name] + "=", text)
+      record.record_timestamps = false
+      if record.respond_to?(:force_updated_on_change, true) # for Issue model
+        def record.force_updated_on_change
+          # do not change updated_on
+        end
+      end
+      record.save!
+    end
+  end
+
   private
 
   TEXT_ATTRIBUTES = [
@@ -72,6 +138,9 @@ EOS
   PANDOC_COMMAND = "#{PANDOC_PATH} -f textile" +
     " -t markdown+fenced_code_blocks+lists_without_preceding_blankline" +
     " --atx-header"
+
+  EDITOR_COMMENT_END_MARK =
+    "# =============== The text is started under here ==============="
 
   def l
     return ActiveRecord::Base.logger
@@ -150,9 +219,17 @@ EOS
         reason: reason,
       }
       l.warn {
-        "#{record.class}(#{record.id})##{text_attribute_name}: #{reason}"
+        "#{create_location_string(invalid_attribute)}: #{reason}"
       }
     end
     return invalid_attribute
+  end
+
+  def create_location_string(d)
+    return "#{d[:klass]}(#{d[:id]})##{d[:text_attribute_name]}"
+  end
+
+  def search_editor
+    return ENV["EDITOR"] || `which editor vi`[/.*(?=\n)/]
   end
 end

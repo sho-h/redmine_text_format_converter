@@ -8,4 +8,9 @@ namespace :redmine do
   task :check_texts => :environment do
     RedmineTextFormatConverter.check_texts
   end
+
+  desc "fix invalid texts."
+  task :fix_invalid_texts => :environment do
+    RedmineTextFormatConverter.fix_invalid_texts
+  end
 end

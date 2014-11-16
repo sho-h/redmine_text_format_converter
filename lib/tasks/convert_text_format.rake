@@ -4,8 +4,8 @@ namespace :redmine do
     RedmineTextFormatConverter.run
   end
 
-  desc "Check Textile texts."
-  task :check_textile_texts => :environment do
+  desc "Check texts."
+  task :check_texts => :environment do
     RedmineTextFormatConverter.check_texts
   end
 end

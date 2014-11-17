@@ -20,9 +20,7 @@ class RedmineTextFormatConverter
     ActiveRecord::Base.transaction do
       convert_setting_welcome_text
       TEXT_ATTRIBUTES.each do |klass, text_attribute_name|
-        set_record_timestamps(klass, false) do
-          convert_text_attribute(klass, text_attribute_name)
-        end
+        convert_text_attribute(klass, text_attribute_name)
       end
     end
   end
@@ -108,12 +106,7 @@ EOS
       text.sub!(/.*?#{EDITOR_COMMENT_END_MARK}\r\n/m, "")
       text.sub!(/\s+\z/, "")
       record.send(d[:text_attribute_name] + "=", text)
-      record.record_timestamps = false
-      if record.respond_to?(:force_updated_on_change, true) # for Issue model
-        def record.force_updated_on_change
-          # do not change updated_on
-        end
-      end
+      disable_record_timestamps(record)
       record.save!
     end
   end
@@ -146,13 +139,12 @@ EOS
     return ActiveRecord::Base.logger
   end
 
-  def set_record_timestamps(klass, value)
-    saved = klass.record_timestamps
-    begin
-      klass.record_timestamps = value
-      yield
-    ensure
-      klass.record_timestamps = saved
+  def disable_record_timestamps(record)
+    record.record_timestamps = false
+    if record.respond_to?(:force_updated_on_change, true) # for Issue model
+      def record.force_updated_on_change
+        # do not change updated_on
+      end
     end
   end
 
@@ -188,6 +180,7 @@ EOS
       original_text = o.send(text_getter_name)
       converted_text = pandoc(original_text)
       o.send(text_setter_name, converted_text)
+      disable_record_timestamps(o)
       o.save!
       progress.inc
     end
@@ -195,13 +188,12 @@ EOS
   end
 
   def convert_setting_welcome_text
-    set_record_timestamps(Setting, false) do
-      Setting.find_all_by_name("welcome_text").each do |setting|
-        original_text = setting.value
-        converted_text = pandoc(original_text)
-        setting.value = converted_text
-        setting.save!
-      end
+    Setting.find_all_by_name("welcome_text").each do |setting|
+      original_text = setting.value
+      converted_text = pandoc(original_text)
+      setting.value = converted_text
+      disable_record_timestamps(setting)
+      setting.save!
     end
   end
 

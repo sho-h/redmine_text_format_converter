@@ -32,7 +32,7 @@ class RedmineTextFormatConverter
       relation = klass.where("#{text_attribute_name} != ''")
       n = relation.count
       puts("#{klass.name}##{text_attribute_name} #{n} rows:")
-      progress = ProgressBar.new("converting", n)
+      progress = ProgressBar.new("checking", n)
       relation.order(:id).each_with_index do |o, i|
         l.debug { "checking: i=<#{i}> id=<#{o.id}>" }
         original_text = o.send(text_getter_name)

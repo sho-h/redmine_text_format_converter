@@ -32,15 +32,15 @@ class RedmineTextFormatConverter
       relation = klass.where("#{text_attribute_name} != ''")
       n = relation.count
       puts("#{klass.name}##{text_attribute_name} #{n} rows:")
-      progress = ProgressBar.new("checking", n)
-      relation.order(:id).each_with_index do |o, i|
-        l.debug { "checking: i=<#{i}> id=<#{o.id}>" }
-        original_text = o.send(text_getter_name)
-        invalid_attribute = check_text(o, text_attribute_name, original_text)
-        invalid_attributes << invalid_attribute if invalid_attribute
-        progress.inc
+      display_progress_bar("checking", n) do |progress|
+        relation.order(:id).each_with_index do |o, i|
+          l.debug { "checking: i=<#{i}> id=<#{o.id}>" }
+          original_text = o.send(text_getter_name)
+          invalid_attribute = check_text(o, text_attribute_name, original_text)
+          invalid_attributes << invalid_attribute if invalid_attribute
+          progress.inc
+        end
       end
-      progress.finish
     end
     if invalid_attributes.length <= 0
       puts("Yay! No invalid attributes.")
@@ -148,6 +148,15 @@ EOS
     end
   end
 
+  def display_progress_bar(title, total)
+    progress = ProgressBar.new(title, total)
+    begin
+      yield(progress)
+    ensure
+      progress.finish
+    end
+  end
+
   def capture2(*command, **options)
     stdout, status = *Open3.capture2(*command, options)
     if !status.success?
@@ -174,17 +183,17 @@ EOS
     relation = klass.where("#{text_attribute_name} != ''")
     n = relation.count
     puts("#{klass.name}##{text_attribute_name} #{n} rows:")
-    progress = ProgressBar.new("converting", n)
-    relation.order(:id).each_with_index do |o, i|
-      l.debug { "processing: i=<#{i}> id=<#{o.id}>" }
-      original_text = o.send(text_getter_name)
-      converted_text = pandoc(original_text)
-      o.send(text_setter_name, converted_text)
-      disable_record_timestamps(o)
-      o.save!
-      progress.inc
+    display_progress_bar("converting", n) do |progress|
+      relation.order(:id).each_with_index do |o, i|
+        l.debug { "processing: i=<#{i}> id=<#{o.id}>" }
+        original_text = o.send(text_getter_name)
+        converted_text = pandoc(original_text)
+        o.send(text_setter_name, converted_text)
+        disable_record_timestamps(o)
+        o.save!
+        progress.inc
+      end
     end
-    progress.finish
   end
 
   def convert_setting_welcome_text

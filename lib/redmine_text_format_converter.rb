@@ -83,6 +83,7 @@ EOS
 # Number: #{i + 1}/#{invalid_attributes.length}
 # Location: #{create_location_string(d)}
 # Reason: #{d[:reason]}
+# URI: #{uri_for(record) || "URI for this type is not supported yet. Pull-request welcome!"}
 #
 # If you want to abort fixing, set empty text.
 #
@@ -232,5 +233,23 @@ EOS
 
   def search_editor
     return ENV["EDITOR"] || `which editor vi`[/.*(?=\n)/]
+  end
+
+  def uri_for(record)
+    prefix = "#{Setting.protocol}://#{Setting.host_name}"
+    case record
+    when Issue
+      return URI("#{prefix}/issues/#{record.id}")
+    when Journal
+      issue = record.issue
+      note_number = issue.journals.find_index(record) + 1
+      return URI("#{prefix}/issues/#{issue.id}#note-#{note_number}")
+    when WikiContent
+      project_identifier = record.page.project.identifier
+      title = record.page.title
+      return URI("#{prefix}/projects/#{project_identifier}/wiki/#{title}")
+    else
+      return nil
+    end
   end
 end

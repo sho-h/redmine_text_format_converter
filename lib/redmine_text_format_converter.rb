@@ -84,6 +84,7 @@ EOS
 # Location: #{create_location_string(d)}
 # Reason: #{d[:reason]}
 # URI: #{uri_for(record) || "URI for this type is not supported yet. Pull-request welcome!"}
+# Console: record = #{d[:klass]}.find(#{d[:id]}); puts(record.#{d[:text_attribute_name]})
 #
 # If you want to abort fixing, set empty text.
 #

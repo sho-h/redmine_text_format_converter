@@ -1,3 +1,0 @@
-= redmine_text_format_converter
-
-Description goes here

@@ -1,0 +1,12 @@
+#!/bin/sh
+
+echo "target redmine version: ${REDMINE_VER}"
+echo "target plugin repository: ${TRAVIS_REPO_SLUG}"
+echo "target plugin branch: ${TRAVIS_BRANCH}"
+git clone --depth=1 --branch=${REDMINE_VER} https://github.com/redmine/redmine.git
+cp /database.yml /redmine/config/
+git clone --depth=1 --branch=${TRAVIS_BRANCH} https://github.com/${TRAVIS_REPO_SLUG}.git /redmine/plugins/redmine_text_format_converter
+cd /redmine
+bundle install --without rmagick
+bundle exec rake db:migrate
+bundle exec rake redmine:plugins:test
